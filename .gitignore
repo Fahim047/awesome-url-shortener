@@ -1,0 +1,16 @@
+# Binaries
+/awesome-url-shortener
+*.exe
+*.out
+*.test
+
+# Build cache
+*.log
+*.tmp
+
+# Vendor
+/vendor/
+
+# IDE
+.vscode/
+.idea/
