@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Fahim047/awesome-url-shortener/pkg/api"
 	"github.com/Fahim047/awesome-url-shortener/pkg/cache"
@@ -28,6 +30,18 @@ func main() {
 	mux.Handle("POST /api/v1/shorten", http.HandlerFunc(api.ShortenURLHandler))
 	mux.Handle("GET /api/v1/analytics/{short_key}", http.HandlerFunc(api.AnalyticsHandler))
 	mux.Handle("GET /", http.HandlerFunc(api.RedirectHandler))
+
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 30)
+		defer ticker.Stop()
+
+		for range ticker.C {
+        if err := cache.SyncClicks(context.Background()); err != nil {
+            log.Println("Error syncing clicks:", err)
+        }
+    }
+	}()
 
 	log.Println("Server running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))

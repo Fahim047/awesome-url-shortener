@@ -94,4 +94,17 @@ func IncrementClickCount(ctx context.Context, shortKey string) error {
 	_, err := Pool.Exec(ctx, query, shortKey)
 	return err
 }
+func UpdateClickCount(ctx context.Context, shortKey string, clicks int64) error {
+   query := `	UPDATE url_mappings
+	SET click_count = $1
+	WHERE short_key = $2
+`
+	_, err := Pool.Exec(ctx, query, clicks, shortKey)
+	if err != nil {
+		fmt.Printf("Error updating clicks for %s: %v\n", shortKey, err)
+		return err
+	}
+	return nil
+}
+
 
