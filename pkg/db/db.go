@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -68,17 +67,22 @@ func CreateMapping(ctx context.Context, mapping *URLMapping) error {
 }
 
 func GetMapping(ctx context.Context, shortKey string) (*URLMapping, error) {
-	query := `
-		SELECT id, short_key, long_url, click_count, created_at, expire_at
-		FROM url_mappings
-		WHERE short_key=$1
-	`
-	row := Pool.QueryRow(ctx, query, shortKey)
-	var m URLMapping
-	if err := row.Scan(&m.ID, &m.ShortKey, &m.LongURL, &m.ClickCount, &m.CreatedAt, &m.ExpireAt); err != nil {
-		return nil, errors.New("mapping not found")
-	}
-	return &m, nil
+    query := `
+        SELECT id, short_key, long_url, click_count, created_at, expire_at
+        FROM url_mappings
+        WHERE short_key=$1
+    `
+    row := Pool.QueryRow(ctx, query, shortKey)
+    var m URLMapping
+    err := row.Scan(&m.ID, &m.ShortKey, &m.LongURL, &m.ClickCount, &m.CreatedAt, &m.ExpireAt)
+    if err != nil {
+        if err.Error() == "no rows in result set" {
+            return nil, nil // Not found
+        }
+        fmt.Print("Error scanning row: ", err)
+        return nil, err // DB error
+    }
+    return &m, nil
 }
 
 func IncrementClickCount(ctx context.Context, shortKey string) error {

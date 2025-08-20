@@ -26,6 +26,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("POST /api/v1/shorten", http.HandlerFunc(api.ShortenURLHandler))
+	mux.Handle("GET /api/v1/analytics/{short_key}", http.HandlerFunc(api.AnalyticsHandler))
 	mux.Handle("GET /", http.HandlerFunc(api.RedirectHandler))
 
 	log.Println("Server running on :8080")
