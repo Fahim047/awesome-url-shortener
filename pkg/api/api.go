@@ -189,3 +189,16 @@ func AnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
+
+func TopURLsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	urls, err := db.GetTopURLs(ctx)
+	if err != nil {
+		http.Error(w, "Failed to fetch top URLs", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(urls)
+}

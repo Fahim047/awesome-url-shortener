@@ -46,32 +46,31 @@ func CacheGet(ctx context.Context, shortKey string) (string, error) {
 
 // CacheIncrClicks increments click counter for shortKey
 func CacheIncrClicks(ctx context.Context, shortKey string) error {
-    key := "clicks:" + shortKey
+	key := "clicks:" + shortKey
 
-    // Check if Redis already has the counter
-    _, err := Rdb.Get(ctx, key).Result()
-    if err == redis.Nil {
-        // Key does not exist → load from DB
-        mapping, dbErr := db.GetMapping(ctx, shortKey)
-        if dbErr != nil {
-            return dbErr
-        }
-        if mapping == nil {
-            return fmt.Errorf("mapping not found for %s", shortKey)
-        }
+	// Check if Redis already has the counter
+	_, err := Rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		// Key does not exist → load from DB
+		mapping, dbErr := db.GetMapping(ctx, shortKey)
+		if dbErr != nil {
+			return dbErr
+		}
+		if mapping == nil {
+			return fmt.Errorf("mapping not found for %s", shortKey)
+		}
 
-        // Initialize Redis with DB click count
-        if setErr := Rdb.Set(ctx, key, mapping.ClickCount, 0).Err(); setErr != nil {
-            return setErr
-        }
-    } else if err != nil {
-        return err
-    }
+		// Initialize Redis with DB click count
+		if setErr := Rdb.Set(ctx, key, mapping.ClickCount, 0).Err(); setErr != nil {
+			return setErr
+		}
+	} else if err != nil {
+		return err
+	}
 
-    // Always increment after ensuring base is correct
-    return Rdb.Incr(ctx, key).Err()
+	// Always increment after ensuring base is correct
+	return Rdb.Incr(ctx, key).Err()
 }
-
 
 // SyncClicks updates click counts from Redis to the database.
 // This function should be called periodically to sync click counts
@@ -86,11 +85,11 @@ func SyncClicks(ctx context.Context) error {
 		shortKey := key[len("clicks:"):]
 		countStr, err := Rdb.Get(ctx, key).Result()
 		if err != nil {
-			continue 
+			continue
 		}
 		count, err := strconv.ParseInt(countStr, 10, 64)
 		if err != nil {
-			continue 
+			continue
 		}
 		db.UpdateClickCount(ctx, shortKey, count)
 	}
