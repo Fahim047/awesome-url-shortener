@@ -21,11 +21,12 @@ type shortenRequest struct {
 
 type shortenResponse struct {
 	ShortURL string `json:"short_url"`
+	ShortKey string `json:"short_key"`
 }
 type analyticsResponse struct {
-    ShortKey   string `json:"short_key"`
-    LongURL    string `json:"long_url"`
-    ClickCount int64  `json:"click_count"`
+	ShortKey   string `json:"short_key"`
+	LongURL    string `json:"long_url"`
+	ClickCount int64  `json:"click_count"`
 }
 
 // POST /api/v1/shorten
@@ -75,7 +76,7 @@ func ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 3. Cache long URL in Redis for 1 hour
-	err := cache.CacheSet(ctx, shortKey, req.LongURL, 1 * time.Hour)
+	err := cache.CacheSet(ctx, shortKey, req.LongURL, 1*time.Hour)
 	if err != nil {
 		http.Error(w, "Failed to cache URL", http.StatusInternalServerError)
 		return
@@ -89,6 +90,7 @@ func ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp := shortenResponse{
 		ShortURL: fmt.Sprintf("%s/%s", baseURL, shortKey),
+		ShortKey: shortKey,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -97,94 +99,93 @@ func ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 
 // GET /:shortKey
 func RedirectHandler(w http.ResponseWriter, r *http.Request) {
-    shortKey := r.URL.Path[1:]
-    if shortKey == "" {
-        http.Error(w, "short key required", http.StatusBadRequest)
-        return
-    }
+	shortKey := r.URL.Path[1:]
+	if shortKey == "" {
+		http.Error(w, "short key required", http.StatusBadRequest)
+		return
+	}
 
-    ctx := r.Context()
+	ctx := r.Context()
 
-    // 1. Try Redis cache first
-    longURL, err := cache.CacheGet(ctx, shortKey)
-    if err == nil && longURL != "" {
-        // Increment clicks (correct namespaced key)
-        cache.CacheIncrClicks(ctx, shortKey)
-        http.Redirect(w, r, longURL, http.StatusFound)
-        return
-    }
+	// 1. Try Redis cache first
+	longURL, err := cache.CacheGet(ctx, shortKey)
+	if err == nil && longURL != "" {
+		// Increment clicks (correct namespaced key)
+		cache.CacheIncrClicks(ctx, shortKey)
+		http.Redirect(w, r, longURL, http.StatusFound)
+		return
+	}
 
-    // 2. Fallback to DB
-    m, err := db.GetMapping(ctx, shortKey)
-    if err != nil {
-        http.Error(w, "Database error", http.StatusInternalServerError)
-        return
-    }
-    if m == nil {
-        http.Error(w, "Not found", http.StatusNotFound)
-        return
-    }
+	// 2. Fallback to DB
+	m, err := db.GetMapping(ctx, shortKey)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	if m == nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
 
-    // 3. Check expiration
-    if m.ExpireAt != nil && m.ExpireAt.Before(time.Now()) {
-        http.Error(w, "Link expired", http.StatusGone)
-        return
-    }
+	// 3. Check expiration
+	if m.ExpireAt != nil && m.ExpireAt.Before(time.Now()) {
+		http.Error(w, "Link expired", http.StatusGone)
+		return
+	}
 
-    // 4. Increment click count in Redis
-    cache.CacheIncrClicks(ctx, shortKey)
+	// 4. Increment click count in Redis
+	cache.CacheIncrClicks(ctx, shortKey)
 
-    // 5. Cache long URL for 1 hour (if still valid)
-    if m.ExpireAt == nil || m.ExpireAt.After(time.Now()) {
-        cache.CacheSet(ctx, shortKey, m.LongURL, 1*time.Hour)
-    }
+	// 5. Cache long URL for 1 hour (if still valid)
+	if m.ExpireAt == nil || m.ExpireAt.After(time.Now()) {
+		cache.CacheSet(ctx, shortKey, m.LongURL, 1*time.Hour)
+	}
 
-    // 6. Redirect
-    http.Redirect(w, r, m.LongURL, http.StatusFound)
+	// 6. Redirect
+	http.Redirect(w, r, m.LongURL, http.StatusFound)
 }
 
 // GET /api/v1/analytics/{short_key}
 func AnalyticsHandler(w http.ResponseWriter, r *http.Request) {
-    shortKey := r.PathValue("short_key")
-    if shortKey == "" {
-        http.Error(w, "short key required", http.StatusBadRequest)
-        return
-    }
+	shortKey := r.PathValue("short_key")
+	if shortKey == "" {
+		http.Error(w, "short key required", http.StatusBadRequest)
+		return
+	}
 
-    ctx := r.Context()
+	ctx := r.Context()
 
-    // Lookup DB mapping (needed for URL + baseline count)
-    mapping, err := db.GetMapping(ctx, shortKey)
-    if err != nil {
-        http.Error(w, "Database error", http.StatusInternalServerError)
-        return
-    }
-    if mapping == nil {
-        http.Error(w, "Not found", http.StatusNotFound)
-        return
-    }
+	// Lookup DB mapping (needed for URL + baseline count)
+	mapping, err := db.GetMapping(ctx, shortKey)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	if mapping == nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
 
-    // 1. Try Redis click counter
-    var clickCount int64
-    clicksStr, err := cache.Rdb.Get(ctx, "clicks:"+shortKey).Result()
-    if err == nil && clicksStr != "" {
-        if parsed, parseErr := strconv.ParseInt(clicksStr, 10, 64); parseErr == nil {
-            clickCount = parsed
-        } else {
-            clickCount = mapping.ClickCount
-        }
-    } else {
-        clickCount = mapping.ClickCount
-    }
+	// 1. Try Redis click counter
+	var clickCount int64
+	clicksStr, err := cache.Rdb.Get(ctx, "clicks:"+shortKey).Result()
+	if err == nil && clicksStr != "" {
+		if parsed, parseErr := strconv.ParseInt(clicksStr, 10, 64); parseErr == nil {
+			clickCount = parsed
+		} else {
+			clickCount = mapping.ClickCount
+		}
+	} else {
+		clickCount = mapping.ClickCount
+	}
 
-    // 2. Build response
-    resp := analyticsResponse{
-        ShortKey:   shortKey,
-        LongURL:    mapping.LongURL,
-        ClickCount: clickCount,
-    }
+	// 2. Build response
+	resp := analyticsResponse{
+		ShortKey:   shortKey,
+		LongURL:    mapping.LongURL,
+		ClickCount: clickCount,
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(resp)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
-
