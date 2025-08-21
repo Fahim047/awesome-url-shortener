@@ -19,11 +19,11 @@ func main() {
 	}
 	defer cache.Rdb.Close()
 
-	mux := routes.NewRouter()
+	router := routes.NewRouter()
 
 	go startClickSync()
 
-	go StartServer(mux)
+	go StartServer(router)
 
 	waitForShutdown()
 }
