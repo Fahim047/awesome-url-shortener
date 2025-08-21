@@ -3,21 +3,30 @@ package db
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
+	"github.com/Fahim047/awesome-url-shortener/pkg/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var Pool *pgxpool.Pool
 
+type URLMapping struct {
+	ID         int64
+	ShortKey   string
+	LongURL    string
+	ClickCount int64
+	CreatedAt  time.Time
+	ExpireAt   *time.Time
+}
+
 // Connect initializes the database connection pool
 func Connect() error {
-	dbHost := getenv("DB_HOST", "localhost")
-	dbPort := getenv("DB_PORT", "5432")
-	dbUser := getenv("DB_USER", "postgres")
-	dbPass := getenv("DB_PASSWORD", "postgres")
-	dbName := getenv("DB_NAME", "awesome_url_shortener")
+	dbHost := util.Getenv("DB_HOST", "localhost")
+	dbPort := util.Getenv("DB_PORT", "5432")
+	dbUser := util.Getenv("DB_USER", "postgres")
+	dbPass := util.Getenv("DB_PASSWORD", "postgres")
+	dbName := util.Getenv("DB_NAME", "awesome_url_shortener")
 
 	connStr := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
@@ -36,24 +45,6 @@ func Connect() error {
 
 	Pool = pool
 	return nil
-}
-
-// helper function for env vars with default values
-func getenv(key, fallback string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		return fallback
-	}
-	return val
-}
-
-type URLMapping struct {
-	ID         int64
-	ShortKey   string
-	LongURL    string
-	ClickCount int64
-	CreatedAt  time.Time
-	ExpireAt   *time.Time
 }
 
 func CreateMapping(ctx context.Context, mapping *URLMapping) error {
