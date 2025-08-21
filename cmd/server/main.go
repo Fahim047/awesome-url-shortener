@@ -5,6 +5,7 @@ import (
 
 	"github.com/Fahim047/awesome-url-shortener/pkg/cache"
 	"github.com/Fahim047/awesome-url-shortener/pkg/db"
+	"github.com/Fahim047/awesome-url-shortener/pkg/middleware"
 	"github.com/Fahim047/awesome-url-shortener/pkg/routes"
 )
 
@@ -19,11 +20,14 @@ func main() {
 	}
 	defer cache.Rdb.Close()
 
-	router := routes.NewRouter()
+	globalRouter := middleware.Chain(routes.NewRouter(),
+		middleware.Logger,
+		middleware.CORS,
+	)
 
 	go startClickSync()
 
-	go StartServer(router)
+	go StartServer(globalRouter)
 
 	waitForShutdown()
 }
